@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eficiencia de caldera · Método directo</title>
+<link rel="icon" type="image/png" href="img/ico2.png">
+<style>
+  :root {
+    --ink: #26323b;
+    --ink-soft: #5b6b77;
+    --paper: #eef3f6;
+    --card: #ffffff;
+    --line: #cfdce4;
+    --mist: #b2cdd9;
+    --steel: #4f7a94;
+    --steel-dark: #3b6078;
+    --ember: #d9481c;
+    --ember-dark: #b53a14;
+    --ok-bg: #dff3e0;
+    --ok-ink: #17591c;
+    --err: #b3261e;
+    --done: #2e8b57;
+    --on-accent: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e6edf1;
+      --ink-soft: #9fb1bd;
+      --paper: #12181d;
+      --card: #1b242b;
+      --line: #34434d;
+      --mist: #2c4553;
+      --steel: #7fb0cc;
+      --steel-dark: #a2c8de;
+      --ember: #ff8a5c;
+      --ember-dark: #ffa583;
+      --ok-bg: #1d3a21;
+      --ok-ink: #a8e6ad;
+      --err: #ff8a80;
+      --done: #62d394;
+      --on-accent: #101820;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    padding: 16px 14px 40px;
+  }
+  main { max-width: 620px; margin: 0 auto; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Encabezado ---------- */
+  .cabecera { display: flex; align-items: center; gap: 14px; padding: 6px 4px 14px; }
+  .cabecera img { width: 64px; height: auto; flex: none; }
+  .cabecera h1 { margin: 0; font-size: 1.15rem; font-weight: 700; }
+  .cabecera .linea { height: 2px; background: var(--steel); margin: 6px 0; border: 0; }
+  .cabecera p { margin: 0; font-size: 1.05rem; color: var(--ink-soft); }
+
+  /* ---------- Tarjetas de selección ---------- */
+  .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  .tarjeta {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    gap: 8px; min-height: 170px; padding: 14px 10px 12px;
+    background: var(--card); color: var(--ink);
+    border: 2px solid var(--line); border-radius: 14px;
+    font: inherit; font-weight: 600; text-align: center; cursor: pointer;
+  }
+  .tarjeta > span:not(.marca) { padding: 0 20px; }
+  .tarjeta img { width: 100px; height: 90px; object-fit: contain; }
+  .tarjeta:hover { border-color: var(--steel); }
+  .tarjeta.lista { border-color: var(--done); }
+  .tarjeta .marca {
+    position: absolute; top: 8px; right: 8px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--done); color: var(--card);
+    display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;
+  }
+  .tarjeta.lista .marca { display: flex; }
+
+  /* ---------- Botones ---------- */
+  .boton {
+    appearance: none; border: 0; cursor: pointer;
+    font: inherit; font-weight: 700; font-size: 1.05rem;
+    padding: 13px 16px; border-radius: 10px;
+    color: var(--on-accent);
+  }
+  .boton.calc { background: var(--ember); }
+  .boton.calc:hover { background: var(--ember-dark); }
+  .boton.reg { background: var(--steel); }
+  .boton.reg:hover { background: var(--steel-dark); }
+  .boton.sec { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+  .boton.sec:hover { border-color: var(--steel); }
+  .boton.peligro { background: transparent; color: var(--err); border: 2px solid var(--err); }
+  .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0 22px; }
+  :is(button, input, select, summary):focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+
+  /* ---------- Resumen ---------- */
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .panel h2 {
+    margin: 0; padding: 10px 12px; text-align: center;
+    background: var(--mist); color: var(--ink); font-size: 1.05rem;
+  }
+  @media (prefers-color-scheme: dark) { .panel h2 { color: var(--ink); } }
+  .fila { display: flex; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--line); font-size: .95rem; }
+  .panel h2 + .fila { border-top: 0; }
+  .fila .k { flex: 0 0 46%; color: var(--ink-soft); }
+  .fila .v { flex: 1; font-variant-numeric: tabular-nums; word-break: break-word; }
+  .fila .v:empty::before { content: "—"; color: var(--ink-soft); }
+
+  /* ---------- Diálogos ---------- */
+  dialog {
+    width: min(94vw, 460px); max-height: 94vh; padding: 0;
+    border: 1px solid var(--line); border-radius: 14px;
+    background: var(--card); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(8, 14, 18, .82); }
+  dialog .cuerpo { padding: 14px; }
+  dialog h2.titulo {
+    margin: 0; padding: 10px 14px; background: var(--steel); color: var(--on-accent);
+    font-size: 1.05rem; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn-info {
+    appearance: none; border: 0; background: none; padding: 0; cursor: pointer;
+    width: 28px; height: 28px; flex: none; margin-right: auto; border-radius: 50%;
+  }
+  .btn-info img { width: 28px; height: 28px; display: block; background: var(--steel-dark); border-radius: 50%; }
+  .campo { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .campo > label, .campo > .etq { display: block; font-weight: 600; margin-bottom: 6px; }
+  .par { display: grid; grid-template-columns: 1fr 120px; gap: 8px; }
+  input[type="number"], select {
+    width: 100%; min-width: 0; height: 42px; padding: 0 10px;
+    font: inherit; color: var(--ink); background: var(--paper);
+    border: 1.5px solid var(--line); border-radius: 8px;
+  }
+  input[aria-invalid="true"] { border-color: var(--err); }
+  .error { color: var(--err); font-size: .85rem; min-height: 0; margin: 4px 0 0; }
+  .error:empty { display: none; }
+  .tipos { display: flex; gap: 18px; flex-wrap: wrap; }
+  .tipos label { display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
+  .tipos input { width: 20px; height: 20px; accent-color: var(--steel); }
+  .pie { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 14px 16px; }
+  .pie.uno { grid-template-columns: 1fr; }
+
+  /* resultado */
+  .res-grande { text-align: center; padding: 8px 0 14px; }
+  .res-grande .etq { font-size: 1rem; color: var(--ink-soft); }
+  .res-grande .num { font-size: 3rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .res-emi { background: var(--ok-bg); color: var(--ok-ink); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+
+  /* registros */
+  #vistaRegistros h2.t { font-size: 1.15rem; margin: 6px 4px 12px; }
+  .reg-item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .reg-item summary { cursor: pointer; padding: 11px 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; list-style: none; }
+  .reg-item summary::-webkit-details-marker { display: none; }
+  .reg-item .fecha { color: var(--ink-soft); font-size: .85rem; grid-column: 1 / -1; }
+  .reg-item .comb { font-weight: 600; }
+  .reg-item .efi { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .reg-item .detalle { border-top: 1px solid var(--line); }
+  .reg-item .borrar { margin: 10px 12px 12px; padding: 8px 14px; font-size: .9rem; }
+  .vacio { text-align: center; color: var(--ink-soft); padding: 30px 10px; }
+  .barra { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .barra .boton { flex: 1 1 140px; }
+
+  .nota { margin: 18px 4px 0; font-size: .85rem; color: var(--ink-soft); }
+  @media (prefers-reduced-motion: no-preference) {
+    .tarjeta, .boton { transition: border-color .15s, background-color .15s; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ===================== VISTA PRINCIPAL ===================== -->
+  <section id="vistaPrincipal">
+    <header class="cabecera">
+      <img src="img/ico2.png" alt="Caldera con salida de vapor">
+      <div>
+        <h1>Cálculo de eficiencia de caldera</h1>
+        <hr class="linea">
+        <p>Método directo</p>
+      </div>
+    </header>
+
+    <div class="tarjetas">
+      <button type="button" class="tarjeta" id="layCombDir">
+        <span class="marca" aria-hidden="true">✓</span>
+        <span>Datos del combustible</span>
+        <img src="img/fuel.png" alt="">
+      </button>
+      <button type="button" class="tarjeta" id="layVapDir">
+        <span class="marca" aria-hidden="true">✓</span>
+        <span>Datos del vapor</span>
+        <img src="img/ico2.png" alt="">
+      </button>
+    </div>
+
+    <div class="acciones">
+      <button type="button" class="boton calc" id="tvCalcDir">Calcular</button>
+      <button type="button" class="boton reg" id="tvRegiDir">Registros</button>
+    </div>
+
+    <div class="panel" aria-live="polite">
+      <h2>Resumen previo al cálculo</h2>
+      <div class="fila"><span class="k">Combustible</span><span class="v" id="tvNombreComb"></span></div>
+      <div class="fila"><span class="k">Densidad</span><span class="v" id="tvDensi"></span></div>
+      <div class="fila"><span class="k">PCI (poder calorífico inferior)</span><span class="v" id="tvPCI"></span></div>
+      <div class="fila"><span class="k">Factor de emisión</span><span class="v" id="tvFE"></span></div>
+      <div class="fila"><span class="k">Flujo de combustible</span><span class="v" id="tvFlujoComb"></span></div>
+      <div class="fila"><span class="k">Tipo de vapor</span><span class="v" id="tvTipoVap"></span></div>
+      <div class="fila"><span class="k">Flujo de vapor</span><span class="v" id="tvFlujoVap"></span></div>
+      <div class="fila" id="layPreVapSat"><span class="k">Presión del vapor</span><span class="v" id="tvPreVap"></span></div>
+      <div class="fila" id="layPreVapSob" hidden><span class="k">Presión del vapor sobrecalentado</span><span class="v" id="tvVapSob"></span></div>
+      <div class="fila" id="layTempVapSob" hidden><span class="k">Temp. del vapor sobrecalentado</span><span class="v" id="tvTempVapSop"></span></div>
+      <div class="fila"><span class="k">Temp. del agua de alimentación</span><span class="v" id="tvTempAgua"></span></div>
+    </div>
+  </section>
+
+  <!-- ===================== VISTA REGISTROS ===================== -->
+  <section id="vistaRegistros" hidden>
+    <h2 class="t">Registros guardados</h2>
+    <div class="barra">
+      <button type="button" class="boton sec" id="btnVolver">← Volver</button>
+      <button type="button" class="boton peligro" id="btnBorrarTodo">Borrar todos</button>
+    </div>
+    <div id="listaRegistros"></div>
+    <p class="nota">Los registros se guardan solo en este navegador y en este dispositivo.</p>
+  </section>
+
+</main>
+
+<!-- ===================== DIÁLOGO COMBUSTIBLE ===================== -->
+<dialog id="dlgFuel" aria-labelledby="tFuel">
+  <h2 class="titulo" id="tFuel">
+    <button type="button" class="btn-info" id="info" aria-label="Información sobre los datos del combustible"><img src="img/info2.svg" alt=""></button>
+    <span>Datos del combustible</span><span style="width:28px"></span>
+  </h2>
+  <div class="cuerpo">
+    <div class="campo">
+      <label for="spFuelName">Combustible</label>
+      <select id="spFuelName"></select>
+    </div>
+    <div class="campo">
+      <label for="etDensidadFuel">Densidad</label>
+      <div class="par"><input type="number" id="etDensidadFuel" step="any" min="0" inputmode="decimal"><select id="spDensiComb" aria-label="Unidad de densidad"></select></div>
+      <p class="error" id="erDensidad" role="alert"></p>
+    </div>
+    <div class="campo">
+      <label for="etPCI">PCI (poder calorífico inferior)</label>
+      <div class="par"><input type="number" id="etPCI" step="any" min="0" inputmode="decimal"><select id="spPCIComb" aria-label="Unidad de PCI"></select></div>
+      <p class="error" id="erPCI" role="alert"></p>
+    </div>
+    <div class="campo">
+      <label for="etFE">Factor de emisión</label>
+      <div class="par"><input type="number" id="etFE" step="any" min="0" inputmode="decimal"><select id="spFEComb" aria-label="Unidad de factor de emisión"></select></div>
+      <p class="error" id="erFE" role="alert"></p>
+    </div>
+    <div class="campo">
+      <label for="etFuelFlow">Flujo de combustible</label>
+      <div class="par"><input type="number" id="etFuelFlow" step="any" min="0" inputmode="decimal"><select id="spFuelFlowUnd" aria-label="Unidad de flujo"></select></div>
+      <p class="error" id="erFlujo" role="alert"></p>
+    </div>
+  </div>
+  <div class="pie">
+    <button type="button" class="boton sec" id="btnCancelarComb">Cancelar</button>
+    <button type="button" class="boton calc" id="btnGuardarComb">Guardar</button>
+  </div>
+</dialog>
+
+<!-- ===================== DIÁLOGO INFO COMBUSTIBLE ===================== -->
+<dialog id="dlgInfo" aria-labelledby="tInfo">
+  <h2 class="titulo" id="tInfo">Sobre los datos del combustible</h2>
+  <div class="cuerpo">
+    <p><strong>Densidad.</strong> Masa por unidad de volumen del combustible. Se usa para pasar entre flujos másicos y volumétricos.</p>
+    <p><strong>PCI.</strong> Poder calorífico inferior: energía útil que libera el combustible al quemarse.</p>
+    <p><strong>Factor de emisión.</strong> Cantidad de CO₂ emitida por unidad de combustible quemado.</p>
+    <p><strong>Flujo de combustible.</strong> Cuánto combustible consume la caldera por hora.</p>
+    <p>Los valores que aparecen al elegir un combustible son de referencia. Puedes cambiarlos por los de tu combustible, y con «Otro» empiezas con los campos vacíos.</p>
+  </div>
+  <div class="pie uno"><button type="button" class="boton reg" id="btnCerrarInfo">Entendido</button></div>
+</dialog>
+
+<!-- ===================== DIÁLOGO VAPOR ===================== -->
+<dialog id="dlgVap" aria-labelledby="tVap">
+  <h2 class="titulo" id="tVap">Datos del vapor</h2>
+  <div class="cuerpo">
+    <div class="campo">
+      <span class="etq" id="etqTipo">Tipo de vapor</span>
+      <div class="tipos" role="radiogroup" aria-labelledby="etqTipo">
+        <label><input type="radio" name="tipoVapor" id="rbSat" value="sat" checked> Saturado</label>
+        <label><input type="radio" name="tipoVapor" id="rbSob" value="sob"> Sobrecalentado</label>
+      </div>
+    </div>
+
+    <div id="dlgSat">
+      <div class="campo">
+        <label for="etSatPressure">Presión del vapor</label>
+        <div class="par"><input type="number" id="etSatPressure" step="any" min="0" inputmode="decimal"><select id="spSatPressureUnd" aria-label="Unidad de presión"></select></div>
+        <p class="error" id="erSatPressure" role="alert"></p>
+      </div>
+    </div>
+
+    <div id="dlgSob" hidden>
+      <div class="campo">
+        <label for="etSupTemp">Temp. del vapor sobrecalentado</label>
+        <div class="par"><input type="number" id="etSupTemp" step="any" inputmode="decimal"><select id="spSupTempUnd" aria-label="Unidad de temperatura"></select></div>
+        <p class="error" id="erSupTemp" role="alert"></p>
+      </div>
+      <div class="campo">
+        <label for="etSupPressure">Presión del vapor sobrecalentado</label>
+        <div class="par"><input type="number" id="etSupPressure" step="any" min="0" inputmode="decimal"><select id="spSupPressureUnd" aria-label="Unidad de presión"></select></div>
+        <p class="error" id="erSupPressure" role="alert"></p>
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="etSteamFlow">Flujo de vapor</label>
+      <div class="par"><input type="number" id="etSteamFlow" step="any" min="0" inputmode="decimal"><select id="spSteamFlowUnd" aria-label="Unidad de flujo de vapor"></select></div>
+      <p class="error" id="erSteamFlow" role="alert"></p>
+    </div>
+    <div class="campo">
+      <label for="etWaterTemp">Temp. del agua de alimentación</label>
+      <div class="par"><input type="number" id="etWaterTemp" step="any" inputmode="decimal"><select id="spWaterTempUnd" aria-label="Unidad de temperatura"></select></div>
+      <p class="error" id="erWaterTemp" role="alert"></p>
+    </div>
+  </div>
+  <div class="pie">
+    <button type="button" class="boton sec" id="btnCancelarVap">Cancelar</button>
+    <button type="button" class="boton calc" id="btnGuardarVapor">Guardar</button>
+  </div>
+</dialog>
+
+<!-- ===================== DIÁLOGO RESULTADO ===================== -->
+<dialog id="dlgRes" aria-labelledby="tRes">
+  <h2 class="titulo" id="tRes">Resultados</h2>
+  <div class="cuerpo">
+    <div class="res-grande"><div class="etq">Eficiencia</div><div class="num" id="tvEfiRes">—</div></div>
+    <div class="res-emi"><span>Emisiones</span><strong id="tvEmiRes">—</strong></div>
+  </div>
+  <div class="pie">
+    <button type="button" class="boton calc" id="btnGuardar">Guardar</button>
+    <button type="button" class="boton sec" id="btnSalir">Salir</button>
+  </div>
+</dialog>
+
+<!-- ===================== DIÁLOGO ALERTA ===================== -->
+<dialog id="dlgAlerta" aria-labelledby="tAlerta">
+  <h2 class="titulo" id="tAlerta">Aviso</h2>
+  <div class="cuerpo"><p id="msgAlerta" style="margin:0"></p></div>
+  <div class="pie uno"><button type="button" class="boton reg" id="btnAlertaOk">Aceptar</button></div>
+</dialog>
+
+<script>
+const PSAT=[[1.0,29.3,2484.4],[1.5,54.69,2470.1],[2.0,73.43,2459.5],[2.5,88.42,2451.0],[3.0,100.98,2443.9],[4.0,121.39,2432.3],[5.0,137.75,2423.0],[7.5,168.75,2405.3],[10.0,191.81,2392.1],[15.0,225.94,2372.3],[20.0,251.42,2357.5],[25.0,271.96,2345.5],[30.0,289.27,2335.3],[40.0,317.62,2318.4],[50.0,340.54,2304.7],[75.0,384.44,2278.0],[100.0,417.51,2257.5],[101.33,419.06,2256.5],[125.0,444.36,2240.6],[150.0,467.13,2226.0],[175.0,487.01,2213.1],[200.0,504.71,2201.6],[225.0,520.71,2191.0],[250.0,535.35,2181.2],[275.0,548.86,2172.0],[300.0,561.43,2163.5],[325.0,573.19,2155.4],[350.0,584.26,2147.7],[375.0,594.73,2140.4],[400.0,604.66,2133.4],[450.0,623.14,2120.3],[500.0,640.09,2108.0],[550.0,655.77,2096.6],[600.0,670.38,2085.8],[650.0,684.08,2075.5],[700.0,697.0,2065.8],[750.0,709.24,2056.4],[800.0,720.87,2047.5],[850.0,731.95,2038.8],[900.0,742.56,2030.5],[950.0,752.74,2022.4],[1000.0,762.51,2014.6],[1100.0,781.03,1999.6],[1200.0,798.33,1985.4],[1300.0,814.59,1971.9],[1400.0,829.96,1958.9],[1500.0,844.55,1946.4],[1750.0,878.16,1917.1],[2000.0,908.47,1889.8],[2250.0,936.21,1864.3],[2500.0,961.87,1840.1],[3000.0,1008.3,1794.9],[3500.0,1049.7,1753.0],[4000.0,1087.4,1713.5],[5000.0,1154.5,1639.7],[6000.0,1213.8,1570.9],[7000.0,1267.5,1505.2],[8000.0,1317.1,1441.6],[9000.0,1363.7,1379.3],[10000.0,1407.8,1317.6],[11000.0,1450.2,1256.1],[12000.0,1491.3,1194.1],[13000.0,1531.4,1131.3],[14000.0,1571.0,1067.0],[15000.0,1610.3,1000.5],[16000.0,1649.9,931.1],[17000.0,1690.3,857.4],[18000.0,1732.2,777.8],[19000.0,1776.8,689.2],[20000.0,1826.6,585.5],[21000.0,1888.0,450.4],[22000.0,2011.1,161.5],[22064.0,2084.3,0.0]];
+const TSAT=[[0.01,0.001],[5,21.02],[10,42.022],[15,62.982],[20,83.915],[25,104.83],[30,125.74],[35,146.64],[40,167.53],[45,188.44],[50,209.34],[55,230.26],[60,251.18],[65,272.12],[70,293.07],[75,314.03],[80,335.02],[85,356.02],[90,377.04],[95,398.09],[100,419.17],[105,440.28],[110,461.42],[115,482.59],[120,503.81],[125,525.07],[130,546.38],[135,567.75],[140,589.16],[145,610.64],[150,632.18],[155,653.79],[160,675.47],[165,697.24],[170,719.08],[175,741.02],[180,763.05],[185,785.19],[190,807.43],[195,829.78],[200,852.26],[205,874.87],[210,897.61],[215,920.5],[220,943.55],[225,966.76],[230,990.14],[235,1013.7],[240,1037.5],[245,1061.5],[250,1085.7],[255,1110.1],[260,1134.8],[265,1159.8],[270,1185.1],[275,1210.7],[280,1236.7],[285,1263.1],[290,1289.8],[295,1317.1],[300,1344.8],[305,1373.1],[310,1402],[315,1431.6],[320,1462],[325,1493.4],[330,1525.8],[335,1559.4],[340,1594.6],[345,1631.7],[350,1671.2],[355,1714],[360,1761.5],[365,1817.2],[370,1891.2],[373.95,2084.3]];
+const PP=[0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2,1.4,1.6,1.8,2.0,2.5,3.0,3.5,4.0,4.5,5.0,6.0,7.0,8.0,9.0,10.0,12.5,15.0,17.5,20.0,25.0,30.0,35.0,40.0,50.0,60.0];
+const TT=[50,100,150,200,225,250,275,300,325,350,375,400,425,450,500,550,600,650,700,800,900,1000,1100,1200,1300];
+const H=[[2592.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[2687.5,2682.4,2675.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[2783.0,2780.2,2776.6,2769.1,2761.2,2752.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[2879.6,2877.8,2875.5,2870.7,2865.9,2860.9,2855.8,2850.6,2839.8,2828.3,2816.1,2803.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[2928.55,2927.0,2925.0,2920.95,2916.9,2912.7,2908.4,2904.1,2895.1,2885.7,2875.85,2865.45,2857.8,2847.2,2836.1,2805.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[2977.5,2976.2,2974.5,2971.2,2967.9,2964.5,2961.0,2957.6,2950.4,2943.1,2935.6,2927.9,2919.9,2911.7,2903.3,2880.9,2856.5,2829.7,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[3027.1,3026.0,3024.5,3021.65,3018.75,3015.8,3012.8,3009.8,3003.65,2997.35,2990.95,2984.4,2977.65,2970.8,2963.75,2945.25,2925.4,2904.05,2887.3,2864.4,2839.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[3076.7,3075.8,3074.5,3072.1,3069.6,3067.1,3064.6,3062.0,3056.9,3051.6,3046.3,3040.9,3035.4,3029.9,3024.2,3009.6,2994.3,2978.4,2961.7,2944.2,2925.7,2885.6,2839.9,2786.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[3127.53,3126.68,3125.53,3123.33,3121.08,3118.8,3116.35,3114.05,3109.55,3104.9,3100.25,3095.5,3090.7,3085.9,3080.95,3068.3,3055.2,3041.65,3027.5,3012.85,2997.5,2964.75,2928.4,2887.3,2857.1,2810.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[3178.35,3177.55,3176.55,3174.55,3172.55,3170.5,3168.1,3166.1,3162.2,3158.2,3154.2,3150.1,3146.0,3141.9,3137.7,3127.0,3116.1,3104.9,3093.3,3081.5,3069.3,3043.9,3016.9,2988.1,2957.3,2924.0,2826.6,2693.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[3229.18,3228.43,3227.58,3225.78,3224.03,3222.2,3220.25,3218.45,3214.95,3211.35,3207.75,3204.1,3200.45,3196.75,3193.05,3183.55,3173.9,3164.05,3153.9,3143.6,3133.0,3111.1,3088.05,3063.75,3038.05,3010.75,2933.3,2834.4,0.0,0.0,1849.4,1791.9,1762.4,1742.6,1716.6,1699.9],[3280.0,3279.3,3278.6,3277.0,3275.5,3273.9,3272.4,3270.8,3267.7,3264.5,3261.3,3258.1,3254.9,3251.6,3248.4,3240.1,3231.7,3223.2,3214.5,3205.7,3196.7,3178.3,3159.2,3139.4,3118.8,3097.5,3040.0,2975.7,2902.4,2816.9,2578.7,2152.8,1988.6,1931.4,1874.4,1843.2],[3332.43,3331.8,3331.13,3329.68,3328.28,3326.8,3325.43,3323.95,3321.1,3318.15,3315.23,3312.28,3309.33,3306.3,3303.38,3295.85,3288.3,3280.65,3272.85,3264.95,3256.95,3240.6,3223.75,3206.35,3188.4,3169.95,3120.75,3066.8,3006.9,2939.3,2805.0,2611.8,2373.5,2199.0,2060.7,2001.8],[3384.85,3384.3,3383.65,3382.35,3381.05,3379.7,3378.45,3377.1,3374.5,3371.8,3369.15,3366.45,3363.75,3361.0,3358.35,3351.6,3344.9,3338.1,3331.2,3324.2,3317.2,3302.9,3288.3,3273.3,3258.0,3242.4,3201.5,3157.9,3111.4,3061.7,2950.6,2821.0,2671.0,2511.8,2284.7,2180.2],[3489.7,3489.3,3488.7,3487.7,3486.6,3485.5,3484.5,3483.4,3481.3,3479.1,3477.0,3474.8,3472.6,3470.4,3468.3,3462.8,3457.2,3451.7,3446.0,3440.4,3434.7,3423.1,3411.4,3399.5,3387.4,3375.1,3343.6,3310.8,3276.7,3241.2,3165.9,3084.8,2997.9,2906.5,2722.6,2570.3],[3598.0,3597.65,3597.15,3596.25,3595.3,3594.4,3593.5,3592.55,3590.7,3588.85,3587.0,3585.15,3583.25,3581.35,3579.5,3574.8,3570.0,3565.3,3560.45,3555.65,3550.8,3541.3,3531.6,3521.8,3512.0,3502.0,3476.5,3450.4,3423.6,3396.2,3339.2,3279.7,3218.0,3154.4,3025.4,2901.9],[3706.3,3706.0,3705.6,3704.8,3704.0,3703.3,3702.5,3701.7,3700.1,3698.6,3697.0,3695.5,3693.9,3692.3,3690.7,3686.8,3682.8,3678.9,3674.9,3670.9,3666.9,3658.8,3650.6,3642.4,3634.1,3625.8,3604.6,3583.1,3561.3,3539.0,3493.5,3446.8,3399.0,3350.4,3252.6,3156.8],[3818.1,3817.85,3817.5,3816.8,3816.1,3815.45,3814.75,3814.05,3812.7,3811.35,3809.95,3808.6,3807.2,3805.85,3804.45,3801.0,3797.5,3794.1,3790.6,3787.1,3783.6,3776.55,3769.45,3762.3,3755.2,3748.1,3730.2,3712.1,3693.8,3675.3,3637.7,3599.4,3560.7,3521.6,3443.5,3366.8],[3929.9,3929.7,3929.4,3928.8,3928.2,3927.6,3927.0,3926.4,3925.3,3924.1,3922.9,3921.7,3920.5,3919.4,3918.2,3915.2,3912.2,3909.3,3906.3,3903.3,3900.3,3894.3,3888.3,3882.2,3876.1,3870.0,3854.6,3839.1,3823.5,3807.8,3776.0,3743.9,3711.6,3679.2,3614.6,3551.3],[4160.6,4160.4,4160.2,4159.8,4159.3,4158.9,4158.4,4157.9,4157.0,4156.1,4155.2,4154.3,4153.4,4152.4,4151.5,4149.2,4146.9,4144.6,4142.3,4140.0,4137.7,4133.1,4128.5,4123.8,4119.2,4114.5,4102.8,4091.1,4079.3,4067.5,4043.8,4020.0,3996.3,3972.6,3925.8,3880.0],[4398.3,4398.2,4398.0,4397.7,4397.3,4396.9,4396.6,4396.2,4395.5,4394.8,4394.0,4393.3,4392.6,4391.9,4391.1,4389.3,4387.5,4385.7,4383.9,4382.1,4380.2,4376.6,4373.0,4369.3,4365.7,4362.0,4352.9,4343.7,4334.6,4325.4,4307.1,4288.8,4270.6,4252.5,4216.8,4182.1],[4642.8,4642.7,4642.6,4642.3,4642.0,4641.7,4641.4,4641.1,4640.5,4640.0,4639.4,4638.8,4638.2,4637.6,4637.1,4635.6,4634.2,4632.7,4631.2,4629.8,4628.3,4625.4,4622.5,4619.6,4616.7,4613.8,4606.5,4599.2,4592.0,4584.7,4570.2,4555.8,4541.5,4527.3,4499.4,4472.2],[4893.8,4893.7,4893.6,4893.3,4893.1,4892.9,4892.6,4892.4,4891.9,4891.4,4891.0,4890.5,4890.0,4889.6,4889.1,4887.9,4886.7,4885.6,4884.4,4883.2,4882.1,4879.7,4877.4,4875.0,4872.7,4870.3,4864.5,4858.6,4852.8,4847.0,4835.4,4823.9,4812.4,4801.1,4778.9,4757.3],[5150.8,5150.7,5150.6,5150.4,5150.2,5150.0,5149.8,5149.6,5149.3,5148.9,5148.5,5148.1,5147.7,5147.3,5147.0,5146.0,5145.1,5144.1,5143.2,5142.2,5141.3,5139.4,5137.4,5135.5,5133.6,5131.7,5127.0,5122.3,5117.6,5112.9,5103.5,5094.2,5085.0,5075.9,5058.1,5040.8],[5413.4,5413.3,5413.3,5413.1,5413.0,5412.8,5412.6,5412.5,5412.2,5411.9,5411.6,5411.3,5410.9,5410.6,5410.3,5409.5,5408.8,5408.0,5407.2,5406.5,5405.7,5404.1,5402.6,5401.0,5399.5,5398.0,5394.1,5390.3,5386.5,5382.7,5375.1,5367.6,5360.2,5352.8,5338.5,5324.5]];
+const FUELS={"Carbon":{"group":"solid","pci":{"kJ/kg":"28760.24","BTU/lb":"12364.689","MJ/m3":"28760.24","BTU/ft3":"771897.60"},"fe":{"kgCO2/kg":"2.534","lbCO2/lb":"2.534","kgCO2/m3":"2534.80","lbCO2/ft3":"158.240"},"den":{"kg/m3":"1000.00","lb/ft3":"62.428"}},"Sugar Cane Bagasse":{"group":"solid","pci":{"kJ/kg":"14742.95","BTU/lb":"6338.333","MJ/m3":"1769.15","BTU/ft3":"47482.42"},"fe":{"kgCO2/kg":"1.664","lbCO2/lb":"1.664","kgCO2/m3":"199.788","lbCO2/ft3":"12.472"},"den":{"kg/m3":"120.00","lb/ft3":"7.491"}},"Oil Palm Fiber":{"group":"solid","pci":{"kJ/kg":"16639.71","BTU/lb":"7153.794","MJ/m3":"6655.88","BTU/ft3":"178637.38"},"fe":{"kgCO2/kg":"1.869","lbCO2/lb":"1.869","kgCO2/m3":"747.920","lbCO2/ft3":"46.690"},"den":{"kg/m3":"400.00","lb/ft3":"24.971"}},"Rice Hull":{"group":"solid","pci":{"kJ/kg":"14952.94","BTU/lb":"6428.613","MJ/m3":"10467.05","BTU/ft3":"280925.92"},"fe":{"kgCO2/kg":"1.553","lbCO2/lb":"1.553","kgCO2/m3":"1087.31","lbCO2/ft3":"67.878"},"den":{"kg/m3":"700.00","lb/ft3":"43.699"}},"Coffee Cisco":{"group":"solid","pci":{"kJ/kg":"17925.99","BTU/lb":"7706.795","MJ/m3":"5377.80","BTU/ft3":"144334.98"},"fe":{"kgCO2/kg":"1.871","lbCO2/lb":"1.871","kgCO2/m3":"561.51","lbCO2/ft3":"35.053"},"den":{"kg/m3":"300.00","lb/ft3":"18.728"}},"Wood":{"group":"solid","pci":{"kJ/kg":"16979.09","BTU/lb":"7299.701","MJ/m3":"3395.82","BTU/ft3":"91140.54"},"fe":{"kgCO2/kg":"1.958","lbCO2/lb":"1.958","kgCO2/m3":"391.68","lbCO2/ft3":"24.451"},"den":{"kg/m3":"200.00","lb/ft3":"12.485"}},"Natural Gas":{"group":"solid","pci":{"kJ/kg":"47640.00","BTU/lb":"20481.72","MJ/m3":"39.49356","BTU/ft3":"1059.97"},"fe":{"kgCO2/kg":"2.388","lbCO2/lb":"2.388","kgCO2/m3":"1.980","lbCO2/ft3":"0.124"},"den":{"kg/m3":"0.829","lb/ft3":"0.05175"}},"Other":{"group":"solid","pci":{"kJ/kg":"","BTU/lb":"","MJ/m3":"","BTU/ft3":""},"fe":{"kgCO2/kg":"","lbCO2/lb":"","kgCO2/m3":"","lbCO2/ft3":""},"den":{"kg/m3":"","lb/ft3":""}},"Kerosene":{"group":"liquid","pci":{"kJ/l":"34381.91","BTU/Gal":"123344.53","MJ/m3":"34381.91","BTU/ft3":"922778.02"},"fe":{"kgCO2/m3":"2542.40","lbCO2/ft3":"158.715","kgCO2/l":"2.5424","lbCO2/Gal":"21.2148"},"den":{"kg/m3":"803.00","lb/ft3":"50.129","kg/l":"0.803","lb/Gal":"6.701"}},"Fuel oil":{"group":"liquid","pci":{"kJ/l":"38166.48","BTU/Gal":"136921.60","MJ/m3":"38166.48","BTU/ft3":"1024352.26"},"fe":{"kgCO2/m3":"3071.33","lbCO2/ft3":"191.734","kgCO2/l":"3.0713","lbCO2/Gal":"25.6284"},"den":{"kg/m3":"970.00","lb/ft3":"60.554","kg/l":"0.970","lb/Gal":"8.094"}},"Palm biodiesel":{"group":"liquid","pci":{"kJ/l":"33169.37","BTU/Gal":"118994.54","MJ/m3":"33169.37","BTU/ft3":"890234.44"},"fe":{"kgCO2/m3":"1818.23","lbCO2/ft3":"113.507","kgCO2/l":"1.8182","lbCO2/Gal":"15.1720"},"den":{"kg/m3":"875.00","lb/ft3":"54.624","kg/l":"0.875","lb/Gal":"7.301"}},"Gasoline":{"group":"liquid","pci":{"kJ/l":"33589.18","BTU/Gal":"120500.61","MJ/m3":"33589.18","BTU/ft3":"901501.82"},"fe":{"kgCO2/m3":"2327.08","lbCO2/ft3":"145.273","kgCO2/l":"2.3271","lbCO2/Gal":"19.4181"},"den":{"kg/m3":"741.00","lb/ft3":"46.258","kg/l":"0.741","lb/Gal":"6.183"}},"Diesel":{"group":"liquid","pci":{"kJ/l":"36231.51","BTU/Gal":"129979.92","MJ/m3":"36231.51","BTU/ft3":"972419.40"},"fe":{"kgCO2/m3":"2689.56","lbCO2/ft3":"167.901","kgCO2/l":"2.6896","lbCO2/Gal":"22.4428"},"den":{"kg/m3":"856.00","lb/ft3":"53.438","kg/l":"0.856","lb/Gal":"7.143"}},"LPG":{"group":"liquid","pci":{"kJ/l":"25432.51","BTU/Gal":"91237.35","MJ/m3":"25432.51","BTU/ft3":"682574.46"},"fe":{"kgCO2/m3":"1708.56","lbCO2/ft3":"106.660","kgCO2/l":"1.7086","lbCO2/Gal":"14.2569"},"den":{"kg/m3":"560.00","lb/ft3":"34.959","kg/l":"0.560","lb/Gal":"4.673"}}};
+
+/* ==========================================================================
+   LÓGICA DE CÁLCULO (portada de directo.java, sin tocar sus fórmulas)
+   ========================================================================== */
+const Calc = (() => {
+
+  // --- búsqueda de intervalo igual a la del bucle while original ---
+  function intervalo(arr, x) {
+    for (let i = 0; i < arr.length - 1; i++) {
+      if (arr[i] <= x && x <= arr[i + 1]) return i;
+    }
+    return -1;
+  }
+
+  function densidadKgM3(base, und) {
+    switch (und) {
+      case "kg/m3":  return base;
+      case "lb/ft3": return base * 16.0185;
+      case "kg/l":   return base * 1000;
+      case "lb/Gal": return base * 119.826;
+    }
+    return 0;
+  }
+
+  function pciKJkg(base, und, den) {
+    switch (und) {
+      case "kJ/kg":   return base;
+      case "BTU/lb":  return base * 2.326;
+      case "MJ/m3":   return (base / den) * 1000;
+      case "BTU/ft3": return ((base * 1.05506) / 0.0283168) / den;
+      case "kJ/l":    return (base * 1000) / den;
+      case "BTU/Gal": return ((base * 1.05506) / den) * 264.172;
+    }
+    return 0;
+  }
+
+  function feKgCO2PorKg(base, und, den) {
+    switch (und) {
+      case "kgCO2/kg":  return base;
+      case "lbCO2/lb":  return base;
+      case "kgCO2/m3":  return base / den;
+      case "lbCO2/ft3": return base * (0.45359 / 0.02831) * (1 / den);
+      case "kgCO2/l":   return (base * 1000) / den;
+      case "kgCO2/Gal": return (base * 264.172) / den;
+      case "lbCO2/Gal": return (base * 264.172 * 0.4553592) / den;
+    }
+    return 0;
+  }
+
+  function flujoCombKgH(base, und, den) {
+    switch (und) {
+      case "kg/h":  return base;
+      case "lb/h":  return base / 2.20462;
+      case "m3/h":  return base * den;
+      case "ft3/h": return (base * den) / 35.3147;
+      case "l/h":   return (base * den) / 1000;
+      case "Gal/h": return (base * den) / 264.172;
+    }
+    return 0;
+  }
+
+  function flujoVapKgH(base, und) {
+    switch (und) {
+      case "kg/h": return base;
+      case "lb/h": return base * 0.453592;
+    }
+    return 0;
+  }
+
+  function tempC(base, und) {
+    switch (und) {
+      case "°C": return base;
+      case "°F": return (base - 32) * 0.55555555;
+    }
+    return 0;
+  }
+
+  function presionSatKPa(base, und) {
+    switch (und) {
+      case "kPa(abs)": return base;
+      case "Psi(abs)": return base * 6.89476;
+      case "Bar(abs)": return base * 100;
+      case "kPa(G)":   return base + 101.325;
+      case "Psi(G)":   return (base + 14.69543) * 6.89476;
+      case "Bar(G)":   return (base + 1.01325) * 100;
+    }
+    return 0;
+  }
+
+  function presionSupMPa(base, und) {
+    switch (und) {
+      case "MPa(abs)": return base;
+      // OJO: igual que en la app Android (restar 0.101325). Para presión manométrica
+      // lo físicamente correcto sería SUMAR 0.101325. Ver nota al usuario.
+      case "MPa(G)":   return base - 0.101325;
+      case "Psi(abs)": return base * 0.006895;
+      case "Bar(abs)": return base * 0.1;
+      case "Psi(G)":   return (base + 14.69543) * 0.006895;
+      case "Bar(G)":   return (base + 1.01325) * 0.1;
+    }
+    return 0;
+  }
+
+  // hf del agua de alimentación (interpolación lineal en TSAT)
+  function hfAgua(tC) {
+    const i = intervalo(TSAT.map(r => r[0]), tC);
+    if (i < 0) return null;
+    const [t0, h0] = TSAT[i], [t1, h1] = TSAT[i + 1];
+    return h0 + ((h1 - h0) / (t1 - t0)) * (tC - t0);
+  }
+
+  /**
+   * d = {
+   *   tipoVapor: 'sat' | 'sob',
+   *   densidad, undDensidad, pci, undPci, fe, undFe, flujoComb, undFlujoComb,
+   *   presSat, undPresSat, presSup, undPresSup, tempSup, undTempSup,
+   *   flujoVap, undFlujoVap, tempAgua, undTempAgua
+   * }
+   * Devuelve { ok:true, eficiencia, emisiones } o { ok:false, error:"..." }
+   */
+  function calcular(d) {
+    const den  = densidadKgM3(d.densidad, d.undDensidad);
+    const pci  = pciKJkg(d.pci, d.undPci, den);
+    const FE   = feKgCO2PorKg(d.fe, d.undFe, den);
+    const fComb = flujoCombKgH(d.flujoComb, d.undFlujoComb, den);
+    const fVap = flujoVapKgH(d.flujoVap, d.undFlujoVap);
+    const tAgua = tempC(d.tempAgua, d.undTempAgua);
+
+    if (!(tAgua <= 373 && tAgua > 0)) {
+      return { ok: false, error: "La temperatura del agua de alimentación está fuera de rango." };
+    }
+    const hHf = hfAgua(tAgua);
+    if (hHf === null) {
+      return { ok: false, error: "La temperatura del agua de alimentación está por debajo del mínimo de la tabla (0,01 °C)." };
+    }
+
+    let hVapor;
+
+    if (d.tipoVapor === "sat") {
+      const P = presionSatKPa(d.presSat, d.undPresSat);
+      if (!(P <= 22000 && P > 0)) {
+        return { ok: false, error: "La presión del vapor está fuera de rango." };
+      }
+      const i = intervalo(PSAT.map(r => r[0]), P);
+      if (i < 0) {
+        return { ok: false, error: "La presión del vapor está por debajo del mínimo de la tabla (1 kPa abs)." };
+      }
+      const [A1, Hf0, Hfg0] = PSAT[i], [A2, Hf1, Hfg1] = PSAT[i + 1];
+      const Hf  = Hf0  + ((Hf1  - Hf0)  / (A2 - A1)) * (P - A1);
+      const Hfg = Hfg0 + ((Hfg1 - Hfg0) / (A2 - A1)) * (P - A1);
+      hVapor = Hf + Hfg;               // Hg
+
+    } else {
+      const Pm = presionSupMPa(d.presSup, d.undPresSup);
+      const Tc = tempC(d.tempSup, d.undTempSup);
+      if (!(Pm >= 0.01 && Pm <= 60)) {
+        return { ok: false, error: "La presión del vapor sobrecalentado está fuera de rango." };
+      }
+      if (!(Tc >= 50 && Tc <= 1300)) {
+        return { ok: false, error: "La temperatura del vapor sobrecalentado está fuera de rango." };
+      }
+      const it = intervalo(TT, Tc);
+      const ip = intervalo(PP, Pm);
+      if (it < 0 || ip < 0) {
+        return { ok: false, error: "Las condiciones del vapor sobrecalentado no están en la tabla." };
+      }
+      const A1 = TT[it], A2 = TT[it + 1];
+      const alfa2 = (A2 - Tc) / (A2 - A1), beta2 = (Tc - A1) / (A2 - A1);
+      const B1 = PP[ip], B2 = PP[ip + 1];
+      const alfa = (B2 - Pm) / (B2 - B1), beta = (Pm - B1) / (B2 - B1);
+      const c11 = H[it][ip], c12 = H[it][ip + 1], c21 = H[it + 1][ip], c22 = H[it + 1][ip + 1];
+      // En la tabla, un 0 significa «sin dato» (a esa presión y temperatura el agua no es vapor sobrecalentado).
+      if (c11 === 0 || c12 === 0 || c21 === 0 || c22 === 0) {
+        return { ok: false, error: "A esa presión y temperatura el vapor no está sobrecalentado según la tabla (sería vapor saturado o líquido). Revisa los datos." };
+      }
+      hVapor = ((alfa * c11 + beta * c12) * alfa2) + ((alfa * c21 + beta * c22) * beta2);
+    }
+
+    const eficiencia = (fVap * (hVapor - hHf)) / (fComb * pci) * 100;
+    const emisiones = FE * fComb;
+    if (!isFinite(eficiencia) || eficiencia <= 0 || eficiencia > 100) {
+      return { ok: false, valorAtipico: true, eficiencia };
+    }
+    return { ok: true, eficiencia, emisiones };
+  }
+
+  return { calcular };
+})();
+
+/* ==========================================================================
+   INTERFAZ
+   ========================================================================== */
+const $ = id => document.getElementById(id);
+const fmt2 = n => (isFinite(n) ? n.toFixed(2) : "NaN");
+
+const NOMBRES = {
+  "Carbon": "Carbón", "Sugar Cane Bagasse": "Bagazo de caña", "Oil Palm Fiber": "Fibra de palma de aceite",
+  "Rice Hull": "Cascarilla de arroz", "Coffee Cisco": "Cisco de café", "Wood": "Madera",
+  "Kerosene": "Queroseno", "Fuel oil": "Fuel oil", "Palm biodiesel": "Biodiésel de palma",
+  "Gasoline": "Gasolina", "Diesel": "Diésel", "LPG": "GLP", "Natural Gas": "Gas natural", "Other": "Otro"
+};
+// mismo orden que la lista de la app Android
+const ORDEN_COMB = ["Carbon", "Sugar Cane Bagasse", "Oil Palm Fiber", "Rice Hull", "Coffee Cisco", "Wood",
+  "Kerosene", "Fuel oil", "Palm biodiesel", "Gasoline", "Diesel", "LPG", "Natural Gas", "Other"];
+
+const UNIDADES = {
+  solid:  { den: ["kg/m3", "lb/ft3"], pci: ["kJ/kg", "BTU/lb", "MJ/m3", "BTU/ft3"],
+            fe: ["kgCO2/kg", "lbCO2/lb", "kgCO2/m3", "lbCO2/ft3"], flujo: ["kg/h", "lb/h", "m3/h", "ft3/h"] },
+  liquid: { den: ["kg/l", "lb/Gal", "kg/m3", "lb/ft3"], pci: ["kJ/l", "BTU/Gal", "MJ/m3", "BTU/ft3"],
+            fe: ["kgCO2/l", "lbCO2/Gal", "kgCO2/m3", "lbCO2/ft3"], flujo: ["l/h", "Gal/h", "m3/h", "ft3/h"] }
+};
+const UND_VAPOR = {
+  flujo: ["kg/h", "lb/h"],
+  presSat: ["kPa(abs)", "kPa(G)", "Psi(abs)", "Psi(G)", "Bar(abs)", "Bar(G)"],
+  presSup: ["MPa(abs)", "MPa(G)", "Psi(abs)", "Psi(G)", "Bar(abs)", "Bar(G)"],
+  temp: ["°C", "°F"]
+};
+
+function llenarSelect(sel, lista, etiquetas) {
+  sel.innerHTML = "";
+  lista.forEach(v => {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = etiquetas ? etiquetas[v] : v;
+    sel.appendChild(o);
+  });
+}
+
+/* ---------- Estado (equivale a los String ...Text de la Activity) ---------- */
+const estado = {
+  combustible: null,   // { nombre, densidad, undDensidad, pci, undPci, fe, undFe, flujo, undFlujo }
+  vapor: null          // { tipo, presSat, undPresSat, presSup, undPresSup, tempSup, undTempSup, flujo, undFlujo, tempAgua, undTempAgua }
+};
+
+/* ---------- Utilidades de diálogos ---------- */
+function alerta(msg, titulo) {
+  $("tAlerta").textContent = titulo || "Aviso";
+  $("msgAlerta").textContent = msg;
+  $("dlgAlerta").showModal();
+}
+function setError(inputId, errId, msg) {
+  const inp = $(inputId), er = $(errId);
+  er.textContent = msg || "";
+  if (msg) { inp.setAttribute("aria-invalid", "true"); inp.focus(); }
+  else inp.removeAttribute("aria-invalid");
+}
+function limpiarErrores(pares) { pares.forEach(([i, e]) => setError(i, e, "")); }
+function valorNumero(id) {
+  const t = $(id).value.trim();
+  if (t === "") return { vacio: true };
+  const n = parseFloat(t);
+  return isNaN(n) ? { malo: true } : { n };
+}
+function cerrarAlClicFuera(dlg) {
+  dlg.addEventListener("mousedown", e => { if (e.target === dlg) dlg.close(); });
+}
+["dlgFuel", "dlgVap", "dlgInfo", "dlgRes", "dlgAlerta"].forEach(id => cerrarAlClicFuera($(id)));
+
+/* ---------- Tarjetas y resumen ---------- */
+function marcarTarjeta(id, lista) { $(id).classList.toggle("lista", !!lista); }
+
+function pintarResumen() {
+  const c = estado.combustible, v = estado.vapor;
+  if (c) {
+    $("tvNombreComb").textContent = c.nombreMostrar;
+    $("tvDensi").textContent = c.densidad + " " + c.undDensidad;
+    $("tvPCI").textContent = c.pci + " " + c.undPci;
+    $("tvFE").textContent = c.fe + " " + c.undFe;
+    $("tvFlujoComb").textContent = c.flujo + " " + c.undFlujo;
+  }
+  if (v) {
+    $("tvTipoVap").textContent = v.tipo === "sat" ? "SATURADO" : "SOBRECALENTADO";
+    $("tvFlujoVap").textContent = v.flujo + " " + v.undFlujo;
+    $("tvTempAgua").textContent = v.tempAgua + " " + v.undTempAgua;
+    const sat = v.tipo === "sat";
+    $("layPreVapSat").hidden = !sat;
+    $("layPreVapSob").hidden = sat;
+    $("layTempVapSob").hidden = sat;
+    if (sat) {
+      $("tvPreVap").textContent = v.presSat + " " + v.undPresSat;
+    } else {
+      $("tvVapSob").textContent = v.presSup + " " + v.undPresSup;
+      $("tvTempVapSop").textContent = v.tempSup + " " + v.undTempSup;
+    }
+  }
+}
+
+/* ==========================================================================
+   DIÁLOGO COMBUSTIBLE
+   ========================================================================== */
+const sel = {
+  fuel: $("spFuelName"), den: $("spDensiComb"), pci: $("spPCIComb"), fe: $("spFEComb"), flujo: $("spFuelFlowUnd")
+};
+const inp = { den: $("etDensidadFuel"), pci: $("etPCI"), fe: $("etFE"), flujo: $("etFuelFlow") };
+
+function grupoActual() { return FUELS[sel.fuel.value].group; }
+
+function valorTabla(tipo, und) {
+  const f = FUELS[sel.fuel.value];
+  return (f && f[tipo] && f[tipo][und]) || "";
+}
+function aplicarDefecto(tipo) {
+  const campo = { den: inp.den, pci: inp.pci, fe: inp.fe }[tipo];
+  campo.value = valorTabla(tipo, sel[tipo].value);
+}
+
+function alCambiarCombustible() {
+  const u = UNIDADES[grupoActual()];
+  llenarSelect(sel.den, u.den);
+  llenarSelect(sel.pci, u.pci);
+  llenarSelect(sel.fe, u.fe);
+  llenarSelect(sel.flujo, u.flujo);
+  aplicarDefecto("den"); aplicarDefecto("pci"); aplicarDefecto("fe");
+  inp.flujo.value = "";
+}
+
+llenarSelect(sel.fuel, ORDEN_COMB, NOMBRES);
+sel.fuel.addEventListener("change", alCambiarCombustible);
+sel.den.addEventListener("change", () => aplicarDefecto("den"));
+sel.pci.addEventListener("change", () => aplicarDefecto("pci"));
+sel.fe.addEventListener("change", () => aplicarDefecto("fe"));
+sel.flujo.addEventListener("change", () => { inp.flujo.value = ""; });
+
+const ERR_COMB = [["etDensidadFuel", "erDensidad"], ["etPCI", "erPCI"], ["etFE", "erFE"], ["etFuelFlow", "erFlujo"]];
+
+function abrirFuel() {
+  sel.fuel.selectedIndex = 0;
+  alCambiarCombustible();
+  limpiarErrores(ERR_COMB);
+  $("dlgFuel").showModal();
+  inp.flujo.focus();
+}
+
+function validarCampoPositivo(inputId, errId) {
+  const r = valorNumero(inputId);
+  if (r.vacio) { setError(inputId, errId, "Campo obligatorio"); return null; }
+  if (r.malo || !(r.n > 0)) { setError(inputId, errId, "Ingresa un número mayor que 0"); return null; }
+  setError(inputId, errId, "");
+  return r.n;
+}
+
+$("btnGuardarComb").addEventListener("click", () => {
+  limpiarErrores(ERR_COMB);
+  // mismo orden de validación que la app: densidad, PCI, FE, flujo
+  const den = validarCampoPositivo("etDensidadFuel", "erDensidad"); if (den === null) return;
+  const pci = validarCampoPositivo("etPCI", "erPCI");                if (pci === null) return;
+  const fe  = validarCampoPositivo("etFE", "erFE");                  if (fe === null) return;
+  const fl  = validarCampoPositivo("etFuelFlow", "erFlujo");         if (fl === null) return;
+
+  estado.combustible = {
+    clave: sel.fuel.value, nombreMostrar: NOMBRES[sel.fuel.value],
+    densidad: inp.den.value.trim(), undDensidad: sel.den.value,
+    pci: inp.pci.value.trim(), undPci: sel.pci.value,
+    fe: inp.fe.value.trim(), undFe: sel.fe.value,
+    flujo: inp.flujo.value.trim(), undFlujo: sel.flujo.value,
+    num: { den, pci, fe, flujo: fl }
+  };
+  marcarTarjeta("layCombDir", true);
+  pintarResumen();
+  $("dlgFuel").close();
+});
+$("btnCancelarComb").addEventListener("click", () => $("dlgFuel").close());
+$("info").addEventListener("click", () => $("dlgInfo").showModal());
+$("btnCerrarInfo").addEventListener("click", () => $("dlgInfo").close());
+
+/* ==========================================================================
+   DIÁLOGO VAPOR
+   ========================================================================== */
+llenarSelect($("spSteamFlowUnd"), UND_VAPOR.flujo);
+llenarSelect($("spSatPressureUnd"), UND_VAPOR.presSat);
+llenarSelect($("spSupPressureUnd"), UND_VAPOR.presSup);
+llenarSelect($("spSupTempUnd"), UND_VAPOR.temp);
+llenarSelect($("spWaterTempUnd"), UND_VAPOR.temp);
+
+const ERR_VAP = [["etSatPressure", "erSatPressure"], ["etSupTemp", "erSupTemp"], ["etSupPressure", "erSupPressure"],
+                 ["etSteamFlow", "erSteamFlow"], ["etWaterTemp", "erWaterTemp"]];
+
+function mostrarTipoVapor() {
+  const sat = $("rbSat").checked;
+  $("dlgSat").hidden = !sat;
+  $("dlgSob").hidden = sat;
+  limpiarErrores(ERR_VAP);
+  if (sat) { $("etSatPressure").value = ""; $("etSatPressure").focus(); }
+  else { $("etSupPressure").value = ""; $("etSupTemp").value = ""; $("etSupPressure").focus(); }
+}
+$("rbSat").addEventListener("change", mostrarTipoVapor);
+$("rbSob").addEventListener("change", mostrarTipoVapor);
+
+function abrirVapor() {
+  $("etSteamFlow").value = "";
+  $("etWaterTemp").value = "";
+  $("rbSat").checked = true;
+  $("dlgSat").hidden = false;
+  $("dlgSob").hidden = true;
+  $("etSatPressure").value = "";
+  limpiarErrores(ERR_VAP);
+  $("dlgVap").showModal();
+  $("etSatPressure").focus();
+}
+
+// Rangos válidos por unidad (idénticos a los de la app)
+const RANGO_SAT = {
+  "kPa(abs)": [0, 22000, "0 < kPa(abs) ≤ 22000"],   "Psi(abs)": [0, 3190.8302, "0 < Psi(abs) ≤ 3190.8302"],
+  "Bar(abs)": [0, 220, "0 < Bar(abs) ≤ 220"],       "kPa(G)":   [0, 21898.7, "0 < kPa(G) ≤ 21898.7"],
+  "Psi(G)":   [0, 3176.02, "0 < Psi(G) ≤ 3176.02"], "Bar(G)":   [0, 218.987, "0 < Bar(G) ≤ 218.987"]
+};
+const RANGO_SUP = {
+  "MPa(abs)": [0, 60.0, "0 < MPa(abs) ≤ 60"],         "Psi(abs)": [1.45, 8701.00, "1.45 < Psi(abs) ≤ 8701"],
+  "Bar(abs)": [0, 600.0, "0 < Bar(abs) ≤ 600"],       "MPa(G)":   [0, 59.89, "0 < MPa(G) ≤ 59.89"],
+  "Psi(G)":   [0, 8687.20, "0 < Psi(G) ≤ 8687.2"],    "Bar(G)":   [0, 598.98, "0 < Bar(G) ≤ 598.98"]
+};
+function validarRango(inputId, errId, n, minExcl, max, texto) {
+  if (n <= minExcl || n > max) { $(inputId).value = ""; setError(inputId, errId, texto); return false; }
+  return true;
+}
+function validarTempAgua() {
+  const r = valorNumero("etWaterTemp");
+  if (r.vacio) { setError("etWaterTemp", "erWaterTemp", "Campo obligatorio"); return null; }
+  if (r.malo)  { setError("etWaterTemp", "erWaterTemp", "ERROR"); return null; }
+  const und = $("spWaterTempUnd").value;
+  if (und === "°C" && (r.n <= 0 || r.n > 373)) { $("etWaterTemp").value = ""; setError("etWaterTemp", "erWaterTemp", "0 < °C ≤ 373"); return null; }
+  if (und === "°F" && (r.n <= 32 || r.n > 703.4)) { $("etWaterTemp").value = ""; setError("etWaterTemp", "erWaterTemp", "32 < °F ≤ 703.4"); return null; }
+  return r.n;
+}
+
+$("btnGuardarVapor").addEventListener("click", () => {
+  limpiarErrores(ERR_VAP);
+  const sat = $("rbSat").checked;
+  const v = { tipo: sat ? "sat" : "sob" };
+
+  if (sat) {
+    const r = valorNumero("etSatPressure");
+    if (r.vacio) return setError("etSatPressure", "erSatPressure", "Campo obligatorio");
+    if (r.malo)  return setError("etSatPressure", "erSatPressure", "ERROR");
+    const und = $("spSatPressureUnd").value, [mn, mx, tx] = RANGO_SAT[und];
+    if (!validarRango("etSatPressure", "erSatPressure", r.n, mn, mx, tx)) return;
+    v.presSat = $("etSatPressure").value.trim(); v.undPresSat = und; v.numPresSat = r.n;
+  } else {
+    const rp = valorNumero("etSupPressure");
+    if (rp.vacio) return setError("etSupPressure", "erSupPressure", "Campo obligatorio");
+    if (rp.malo)  return setError("etSupPressure", "erSupPressure", "ERROR");
+    const undP = $("spSupPressureUnd").value, [mnp, mxp, txp] = RANGO_SUP[undP];
+    if (!validarRango("etSupPressure", "erSupPressure", rp.n, mnp, mxp, txp)) return;
+
+    const rt = valorNumero("etSupTemp");
+    if (rt.vacio) return setError("etSupTemp", "erSupTemp", "Campo obligatorio");
+    if (rt.malo)  return setError("etSupTemp", "erSupTemp", "ERROR");
+    const undT = $("spSupTempUnd").value;
+    if (undT === "°C" && (rt.n < 50 || rt.n > 1300)) { $("etSupTemp").value = ""; return setError("etSupTemp", "erSupTemp", "50 ≤ °C ≤ 1300"); }
+    if (undT === "°F" && (rt.n < 200 || rt.n > 2000)) { $("etSupTemp").value = ""; return setError("etSupTemp", "erSupTemp", "200 ≤ °F ≤ 2000"); }
+
+    v.presSup = $("etSupPressure").value.trim(); v.undPresSup = undP; v.numPresSup = rp.n;
+    v.tempSup = $("etSupTemp").value.trim();     v.undTempSup = undT; v.numTempSup = rt.n;
+  }
+
+  const rf = valorNumero("etSteamFlow");
+  if (rf.vacio) return setError("etSteamFlow", "erSteamFlow", "Campo obligatorio");
+  if (rf.malo || !(rf.n > 0)) return setError("etSteamFlow", "erSteamFlow", "Ingresa un número mayor que 0");
+
+  const tAgua = validarTempAgua();
+  if (tAgua === null) return;
+
+  v.flujo = $("etSteamFlow").value.trim(); v.undFlujo = $("spSteamFlowUnd").value; v.numFlujo = rf.n;
+  v.tempAgua = $("etWaterTemp").value.trim(); v.undTempAgua = $("spWaterTempUnd").value; v.numTempAgua = tAgua;
+
+  estado.vapor = v;
+  marcarTarjeta("layVapDir", true);
+  pintarResumen();
+  $("dlgVap").close();
+});
+$("btnCancelarVap").addEventListener("click", () => $("dlgVap").close());
+
+/* ==========================================================================
+   CALCULAR / RESULTADO / GUARDAR
+   ========================================================================== */
+let ultimoCalculo = null;
+
+$("layCombDir").addEventListener("click", abrirFuel);
+$("layVapDir").addEventListener("click", abrirVapor);
+
+$("tvCalcDir").addEventListener("click", () => {
+  const c = estado.combustible, v = estado.vapor;
+  if (!c || !c.flujo) { abrirFuel(); return; }       // igual que la app: abre el diálogo que falta
+  if (!v || !v.flujo || !v.tempAgua) { abrirVapor(); return; }
+
+  const datos = {
+    tipoVapor: v.tipo,
+    densidad: c.num.den, undDensidad: c.undDensidad,
+    pci: c.num.pci, undPci: c.undPci,
+    fe: c.num.fe, undFe: c.undFe,
+    flujoComb: c.num.flujo, undFlujoComb: c.undFlujo,
+    presSat: v.numPresSat, undPresSat: v.undPresSat,
+    presSup: v.numPresSup, undPresSup: v.undPresSup,
+    tempSup: v.numTempSup, undTempSup: v.undTempSup,
+    flujoVap: v.numFlujo, undFlujoVap: v.undFlujo,
+    tempAgua: v.numTempAgua, undTempAgua: v.undTempAgua
+  };
+  const r = Calc.calcular(datos);
+
+  if (!r.ok) {
+    if (r.valorAtipico) {
+      alerta("La eficiencia calculada es " + fmt2(r.eficiencia) + " %. Por favor confirma que los datos ingresados son correctos.",
+             "Alerta de error en el cálculo");
+    } else {
+      alerta(r.error, "No se pudo calcular");
+    }
+    return;
+  }
+  ultimoCalculo = { datos, eficiencia: r.eficiencia, emisiones: r.emisiones };
+  $("tvEfiRes").textContent = fmt2(r.eficiencia) + " %";
+  $("tvEmiRes").textContent = fmt2(r.emisiones) + " kgCO₂/h";
+  $("dlgRes").showModal();
+});
+
+$("btnSalir").addEventListener("click", () => $("dlgRes").close());
+
+/* ---------- Registros (localStorage; en la app era SQLite) ---------- */
+const CLAVE = "boiler_directo_registros_v1";
+function leerRegistros() {
+  try { const t = localStorage.getItem(CLAVE); return t ? JSON.parse(t) : []; }
+  catch (e) { return []; }
+}
+function escribirRegistros(lista) {
+  try { localStorage.setItem(CLAVE, JSON.stringify(lista)); return true; }
+  catch (e) { return false; }
+}
+
+$("btnGuardar").addEventListener("click", () => {
+  if (!ultimoCalculo) return;
+  const c = estado.combustible, v = estado.vapor, u = ultimoCalculo;
+  const ahora = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const fecha = ahora.getFullYear() + "-" + pad(ahora.getMonth() + 1) + "-" + pad(ahora.getDate()) +
+                " " + pad(ahora.getHours()) + ":" + pad(ahora.getMinutes()) + ":" + pad(ahora.getSeconds());
+  const reg = {
+    id: Date.now(), fecha,
+    tipoVapor: v.tipo === "sat" ? "SATURADO" : "SOBRECALENTADO",
+    combustible: c.nombreMostrar,
+    densidad: c.densidad + " " + c.undDensidad,
+    pci: c.pci + " " + c.undPci,
+    fe: c.fe + " " + c.undFe,
+    flujoComb: c.flujo + " " + c.undFlujo,
+    presSat: v.tipo === "sat" ? v.presSat + " " + v.undPresSat : "",
+    presSup: v.tipo === "sob" ? v.presSup + " " + v.undPresSup : "",
+    tempSup: v.tipo === "sob" ? v.tempSup + " " + v.undTempSup : "",
+    flujoVap: v.flujo + " " + v.undFlujo,
+    tempAgua: v.tempAgua + " " + v.undTempAgua,
+    eficiencia: u.eficiencia, emisiones: u.emisiones
+  };
+  const lista = leerRegistros();
+  lista.unshift(reg);
+  const ok = escribirRegistros(lista);
+  $("dlgRes").close();
+
+  // igual que la app: tras guardar se limpian los flujos y los datos del vapor para el siguiente cálculo
+  if (estado.combustible) estado.combustible.flujo = "";
+  estado.vapor = null;
+  marcarTarjeta("layVapDir", false);
+  ["tvFlujoComb", "tvTipoVap", "tvFlujoVap", "tvPreVap", "tvVapSob", "tvTempVapSop", "tvTempAgua"]
+    .forEach(id => { $(id).textContent = ""; });
+  $("layPreVapSat").hidden = false; $("layPreVapSob").hidden = true; $("layTempVapSob").hidden = true;
+
+  mostrarRegistros();
+  if (!ok) alerta("No se pudo guardar el registro en este navegador (almacenamiento bloqueado o lleno).", "Aviso");
+});
+
+/* ---------- Vista de registros ---------- */
+function filaDetalle(k, v) {
+  return '<div class="fila"><span class="k">' + k + '</span><span class="v">' + esc(v) + '</span></div>';
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function mostrarRegistros() {
+  $("vistaPrincipal").hidden = true;
+  $("vistaRegistros").hidden = false;
+  const lista = leerRegistros();
+  const cont = $("listaRegistros");
+  $("btnBorrarTodo").disabled = lista.length === 0;
+  if (!lista.length) {
+    cont.innerHTML = '<p class="vacio">Todavía no hay registros guardados. Calcula y pulsa «Guardar» para añadir uno.</p>';
+    return;
+  }
+  cont.innerHTML = lista.map(r => {
+    const sat = r.tipoVapor === "SATURADO";
+    return '<details class="reg-item" data-id="' + r.id + '">' +
+      '<summary><span class="fecha">' + esc(r.fecha) + '</span>' +
+      '<span class="comb">' + esc(r.combustible) + ' · ' + esc(r.tipoVapor.toLowerCase()) + '</span>' +
+      '<span class="efi">' + fmt2(r.eficiencia) + ' %</span></summary>' +
+      '<div class="detalle">' +
+        filaDetalle("Densidad", r.densidad) + filaDetalle("PCI", r.pci) + filaDetalle("Factor de emisión", r.fe) +
+        filaDetalle("Flujo de combustible", r.flujoComb) + filaDetalle("Tipo de vapor", r.tipoVapor) +
+        (sat ? filaDetalle("Presión del vapor", r.presSat)
+             : filaDetalle("Presión del vapor sobrecalentado", r.presSup) + filaDetalle("Temp. del vapor sobrecalentado", r.tempSup)) +
+        filaDetalle("Flujo de vapor", r.flujoVap) + filaDetalle("Temp. del agua de alimentación", r.tempAgua) +
+        filaDetalle("Eficiencia", fmt2(r.eficiencia) + " %") + filaDetalle("Emisiones", fmt2(r.emisiones) + " kgCO₂/h") +
+        '<button type="button" class="boton peligro borrar" data-borrar="' + r.id + '">Borrar este registro</button>' +
+      '</div></details>';
+  }).join("");
+}
+
+$("listaRegistros").addEventListener("click", e => {
+  const b = e.target.closest("[data-borrar]");
+  if (!b) return;
+  const id = Number(b.getAttribute("data-borrar"));
+  escribirRegistros(leerRegistros().filter(r => r.id !== id));
+  mostrarRegistros();
+});
+$("btnBorrarTodo").addEventListener("click", () => {
+  if (confirm("¿Borrar todos los registros guardados?")) { escribirRegistros([]); mostrarRegistros(); }
+});
+$("tvRegiDir").addEventListener("click", mostrarRegistros);
+$("btnVolver").addEventListener("click", () => {
+  $("vistaRegistros").hidden = true;
+  $("vistaPrincipal").hidden = false;
+  window.scrollTo(0, 0);
+});
+$("btnAlertaOk").addEventListener("click", () => $("dlgAlerta").close());
+</script>
+</body>
+</html>
